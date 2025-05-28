@@ -1,0 +1,15 @@
+﻿@{
+    Layout = "_Layout";
+    var symptomId = (Guid)ViewData["SymptomId"]!;
+    var symptomName = ViewData["SymptomName"] as string;
+    var question = ViewData["Question"] as string;
+}
+
+<h3>Вопрос @ViewData["Asked"] / @ViewData["Total"]</h3>
+<p><strong>@question</strong></p>
+
+<form asp-action="Answer" method="post">
+    <input type="hidden" name="symptomId" value="@symptomId" />
+    <button class="btn btn-success" name="answerYes" value="true">Да</button>
+    <button class="btn btn-danger" name="answerYes" value="false">Нет</button>
+</form>

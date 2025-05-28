@@ -1,0 +1,66 @@
+﻿@section Localization {
+    <script src="@Url.Action("CldrData", "Localization", new { t = CldrDataScriptBuilder.GetCacheParam() })"></script>
+    <script src="~/js/devextreme/localization/dx.messages.ru.js"></script>
+}
+
+@using data
+@using ui.Models.ParentSymptomViewModels
+@model CreateViewModel
+
+@using (Html.BeginForm())
+{
+    using (Html.DevExtreme().ValidationGroup())
+    {
+        @Html.AntiForgeryToken()
+
+        @(Html.DevExtreme().Form<CreateViewModel>()
+            .ID("dataForm") 
+            .ShowValidationSummary(true)
+            //.LabelLocation(FormLabelLocation.Top)
+            .ShowColonAfterLabel(false)
+            .Items(items => {
+
+                items.AddGroup()
+                    .Caption("Родительский признак (создание)")
+                    .Items(groupItems => {
+
+                        groupItems.AddSimpleFor(m => m.Name)
+                            .Editor(e => e
+                                .TextBox()
+                                .ID("name")
+                            );
+
+                        groupItems.AddSimpleFor(m => m.Description)
+                            .Editor(e => e
+                                .TextArea()
+                            );
+                    });
+            })
+            .FormData(Model)
+        )
+
+        <br />
+
+        @(Html.DevExtreme().Button()
+            .Text("Сохранить")
+            .Type(ButtonType.Success)
+            .UseSubmitBehavior(true)
+        )
+
+        <span />
+
+        @(Html.DevExtreme().Button()
+            .Text("Закрыть")
+            .Type(ButtonType.Danger)
+            .OnClick("toIndex")
+        )
+    }
+}
+
+<script>
+
+    function toIndex() {
+        window.location = '@Url.Action("Index", "ParentSymptom")';
+    }
+
+</script>

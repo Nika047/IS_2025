@@ -1,0 +1,119 @@
+﻿@section Localization {
+    <script src="@Url.Action("CldrData", "Localization", new { t = CldrDataScriptBuilder.GetCacheParam() })"></script>
+    <script src="~/js/devextreme/localization/dx.messages.ru.js"></script>
+}
+
+@using data
+@using ui.Models.SymptomViewModels
+@model CreateViewModel
+
+@using (Html.BeginForm())
+{
+    using (Html.DevExtreme().ValidationGroup())
+    {
+        @Html.AntiForgeryToken()
+
+        @(Html.DevExtreme().Form<CreateViewModel>()
+            .ID("dataForm") 
+            .ShowValidationSummary(true)
+            //.LabelLocation(FormLabelLocation.Top)
+            .ShowColonAfterLabel(false)
+            .Items(items => {
+
+                items.AddGroup()
+                    .Caption("Признак (создание)")
+                    .Items(groupItems => {
+
+                        groupItems.AddSimpleFor(m => m.Name)
+                            .Editor(e => e
+                                .TextBox()
+                                .ID("name")
+                            );
+
+                        groupItems.AddSimpleFor(m => m.ParentSymptomId)
+                            .Label(l => l.Text("Родитель"))
+                            .Editor(e => e
+                                .DropDownBox()
+                                    .ValueExpr("OID")
+                                    .DisplayExpr("Name")
+                                    .DataSource(d => d.WebApi().Controller("ParentSymptom").LoadAction("Get").Key("OID"))
+                                    .ShowClearButton(true)
+                                    .ContentTemplate(new TemplateName("EmbeddedUnitTree"))
+                                    .ID("reg_parent")
+                                );
+
+                        groupItems.AddSimpleFor(m => m.SymptomGivenNotDiagnoseP)
+                            .Editor(e => e
+                                    .NumberBox()
+                            );
+                            
+                        groupItems.AddSimpleFor(m => m.Question)
+                            .Editor(e => e
+                                        .TextBox()
+                            );
+
+                        groupItems.AddSimpleFor(m => m.Description)
+                            .Editor(e => e
+                                .TextArea()
+                            );
+                    });
+            })
+            .FormData(Model)
+        )
+
+        <br />
+
+        @(Html.DevExtreme().Button()
+            .Text("Сохранить")
+            .Type(ButtonType.Success)
+            .UseSubmitBehavior(true)
+        )
+
+        <span />
+
+        @(Html.DevExtreme().Button()
+            .Text("Закрыть")
+            .Type(ButtonType.Danger)
+            .OnClick("toIndex")
+        )
+    }
+}
+
+@using (Html.DevExtreme().NamedTemplate("EmbeddedUnitTree"))
+{
+    @(Html.DevExtreme().TreeList<DbParentSymptom>()
+        .DataSource(new JS(@"component.getDataSource()"))
+        .Columns(columns =>
+        {
+            columns.Add().DataField("Name").Caption("Наименование");
+        })
+        .KeyExpr(nameof(DbParentSymptom.OID))
+        @* .ParentIdExpr(nameof(DbParentSymptom.ParentOID)) *@
+        .RootValue("00000000-0000-0000-0000-000000000000")
+        .AutoExpandAll(true)
+        .ShowColumnHeaders(false)
+        .HoverStateEnabled(true)
+        .Paging(p => p.PageSize(10))
+        .FilterRow(f => f.Visible(true))
+        .Scrolling(s => s.Mode(TreeListScrollingMode.Virtual))
+        .Height(345)
+        .Selection(s => s.Mode(SelectionMode.Single))
+        .SelectedRowKeys(new JS(@"[component.option(""value"")]"))
+        .OnSelectionChanged(@<text>
+            function(evt) {
+                var keys = evt.selectedRowKeys;
+                component.option("value", keys[0]);
+                if (keys[0])
+                    component.close();
+            }
+        </text>)
+    )
+}
+
+<script>
+
+    function toIndex() {
+        window.location = '@Url.Action("Index", "Symptom")';
+    }
+
+</script>

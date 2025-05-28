@@ -1,0 +1,31 @@
+@section Localization {
+    <script src="@Url.Action("CldrData", "Localization", new { t = CldrDataScriptBuilder.GetCacheParam() })"></script>
+    <script src="~/js/devextreme/localization/dx.messages.ru.js"></script>
+}
+
+@{
+    Layout = "_EmptyLayout";
+}
+
+<h3>Ошибка</h3>
+<br />
+
+@if (!string.IsNullOrEmpty(ViewBag.ErrorMessage))
+{
+    <p>@ViewBag.ErrorMessage</p>
+}
+else
+{
+    <p>Во время обработки запроса произошла ошибка</p>
+    <p>Обратитесь к администратору</p>
+}
+
+<a href="/">Войти в приложение</a> |
+<a href="#" id="back">Вернуться назад</a>
+
+<script>
+    document.getElementById('back').addEventListener('click', function(event) {
+        event.preventDefault();
+        window.history.go(-1);
+    });
+</script>

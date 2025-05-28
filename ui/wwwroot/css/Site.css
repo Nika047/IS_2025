@@ -1,0 +1,8 @@
+body {
+}
+
+.required-field 
+.dx-group-caption::after {
+    content: " *";
+    color: red;
+}

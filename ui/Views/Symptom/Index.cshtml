@@ -1,0 +1,222 @@
+﻿@section Localization {
+    <script src="@Url.Action("CldrData", "Localization", new { t = CldrDataScriptBuilder.GetCacheParam() })"></script>
+    <script src="~/js/devextreme/localization/dx.messages.ru.js"></script>
+}
+
+@using data;
+@using ui.Models.SymptomViewModels;
+
+@(Html.DevExtreme().Toolbar()
+    .Items(items => {
+        items.Add()
+            .Widget(w => w
+                .Button()
+                .OnClick("refreshButton_click")
+                .Text("Обновить")
+                .Icon("refresh"))
+            .LocateInMenu(ToolbarItemLocateInMenuMode.Auto)
+            .Location(ToolbarItemLocation.After);
+
+        items.Add()
+            .Widget(w => w
+                .Button()
+                .OnClick("addRow")
+                .Text("Создать")
+                .Icon("plus"))
+            .LocateInMenu(ToolbarItemLocateInMenuMode.Auto)
+            .Location(ToolbarItemLocation.After);
+
+        items.Add()
+            .Widget(w => w
+                .Button()
+                .OnClick("resetGridSettings")
+                .Text("Сброс настроек"))
+            .LocateInMenu(ToolbarItemLocateInMenuMode.Always);
+
+        items.Add()
+            .Template(@<text><div class="toolbar-label"><b>Список признаков</b></div></text>)
+            .LocateInMenu(ToolbarItemLocateInMenuMode.Never)
+            .Location(ToolbarItemLocation.Before);
+    })
+)
+
+<br />
+
+@(Html.DevExtreme().DataGrid<DbSymptom>() 
+    .ID("grid")
+    .ShowBorders(true)
+    .DataSource(d => d.WebApi().Controller("Symptom")
+        .LoadAction("Get") 
+        .Key(nameof(DbSymptom.OID)))
+
+    .KeyExpr(nameof(DbSymptom.OID))
+
+    .Columns(columns => {
+        columns.AddFor(m => m.OID)
+            .Visible(false);  
+
+        columns.AddFor(m => m.Name)
+            .Caption("Наименование");
+
+        columns.AddFor(m => m.ParentSymptom.Name)
+            .Caption("Родитель");
+            
+        columns.AddFor(m => m.SymptomGivenNotDiagnoseP)
+            .Caption("Вероятность наличия признака")
+            .DataType(GridColumnDataType.String);
+
+        columns.AddFor(m => m.Question)
+            .Caption("Вопрос");
+            
+        columns.AddFor(m => m.Description)
+            .Caption("Примечание");
+       
+        columns.Add()
+            .Fixed(true).FixedPosition(HorizontalEdge.Right)
+            .Type(GridCommandColumnType.Buttons)
+            .Width(90)
+            .Buttons(b =>
+            {
+                b.Add()
+                    .Hint("Редактировать")
+                    .Icon("edit")
+                    .OnClick(@<text>onEdit</text>);
+
+                b.Add()
+                    .Hint("Контекстное меню")
+                    .Icon("overflow")
+                    .OnClick(@<text>onContext</text>);
+
+            });
+    })
+    .Paging(p => p.PageSize(20))
+    .Pager(p => p
+        .ShowInfo(true) //.ShowNavigationButtons(true)
+        .ShowPageSizeSelector(true)
+        .AllowedPageSizes(new[] { 10, 20, 30 })
+        .Visible(true))
+
+    .FilterRow(f => f.Visible(true))
+    .FilterPanel(f => f.Visible(true))
+    .HeaderFilter(f => f.Visible(true))
+
+    .Sorting(sorting => sorting.Mode(GridSortingMode.Multiple))
+
+    .FocusedRowEnabled(true)
+    .HoverStateEnabled(true)
+
+    .ColumnResizingMode(ColumnResizingMode.Widget)
+
+    .ColumnHidingEnabled(true)
+    .AllowColumnReordering(true)
+    .AllowColumnResizing(true)
+
+    .OnContextMenuPreparing("onContextMenuPreparing")
+
+    .ColumnFixing(c => c.Enabled(true))
+
+    //.OnRowPrepared("onRowPrepared")
+
+    .Editing(editing => {
+        editing.UseIcons(true);
+    })
+)
+
+@(Html.DevExtreme().ContextMenu()
+    .ID("contextMenu")
+    .DisplayExpr("Text")
+    .ItemsExpr("Items")
+    .OnItemClick("contextMenuItemClick")
+)
+
+<script>
+
+    function onContextMenuPreparing(e) {
+        console.debug('onContextMenuPreparing', e);
+
+        if (e.row.rowType == 'data')
+            onContext(e);
+    }
+
+    function refreshButton_click() {
+        $("#grid").dxDataGrid("instance").refresh();
+    }
+
+    function editRow() {
+        var grid = $("#grid").dxDataGrid("instance");
+
+        if (grid.option("focusedRowIndex") != -1) {
+            grid.editRow(grid.option("focusedRowIndex"));
+        }
+    }
+
+    function deleteRow() {
+        var grid = $("#grid").dxDataGrid("instance");
+        if (grid.option("focusedRowIndex") != -1) {
+            grid.deleteRow(grid.option("focusedRowIndex"));
+        }
+    }
+
+    function resetGridSettings() {
+        $("#grid").dxDataGrid("instance").state({});
+        $("#grid").dxDataGrid("instance").refresh();
+    }
+
+    function addRow() {
+        window.location = '@Url.Action("Create", "Symptom")';
+    }
+
+    function onEdit(e) {
+        console.debug(e);
+        window.location = '@Url.Action("Edit", "Symptom")' + '/' + e.row.data.OID;
+    }
+
+    function onContext(e) {
+        console.debug(e);
+
+        $('#contextMenu').dxContextMenu('instance').option('position', { of: e.event });
+
+        var items = [
+            { code: "edit", icon: "edit", Text: "Редактировать", OID: e.row.data.OID },
+            { code: "create", icon: "doc", Text: "Создать" },
+            { code: "remove", icon: "trash", Text: "Удалить", OID: e.row.data.OID },
+        ];
+
+        $('#contextMenu').dxContextMenu('instance').option('dataSource', items);
+        $('#contextMenu').dxContextMenu('instance').show();
+    }
+
+    function contextMenuItemClick(e) {
+        console.debug("contextMenuItemClick", e);
+
+        switch (e.itemData.code) {
+            case 'edit':
+                window.location = '@Url.Action("Edit", "Symptom")' + '/' + e.itemData.OID;
+                break;
+
+            case 'create':
+                window.location = '@Url.Action("Create", "Symptom")';
+                break;
+
+            case 'remove':
+                var result = DevExpress.ui.dialog.confirm("Вы уверены?", "Удаление данных");
+                result.done(function (dialogResult) {
+                    if (dialogResult) {
+                        $.post('@Url.Action("Remove", "Symptom")' + '/' + e.itemData.OID)
+                            .done(function (model) {
+                                $("#grid").dxTreeList("instance").refresh();
+                                DevExpress.ui.notify("Данные успешно удалены", "success", 1500);
+                            }).fail(function (jqxhr, settings, exception) {
+                                DevExpress.ui.notify("Ошибка удаления данных", "error", 1500);
+                                console.log('Ошибка удаления данных', exception);
+                            });
+                    }
+                });
+                break;
+
+            default:
+                break;
+        }
+    }
+
+</script>

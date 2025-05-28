@@ -1,0 +1,149 @@
+﻿@section Localization {
+    <script src="@Url.Action("CldrData", "Localization", new { t = CldrDataScriptBuilder.GetCacheParam() })"></script>
+    <script src="~/js/devextreme/localization/dx.messages.ru.js"></script>
+}
+
+@using data
+@using ui.Models.DiagnoseViewModels
+@using ui.Models.SymptomViewModels
+
+@model ui.Models.DiagnoseViewModels.CreateViewModel
+
+@using (Html.BeginForm("Create", "Diagnose", FormMethod.Post, new { id = "diagnose" }))
+{
+    using (Html.DevExtreme().ValidationGroup())
+    {
+        @Html.AntiForgeryToken()
+
+        @(Html.DevExtreme().Form<ui.Models.DiagnoseViewModels.CreateViewModel>()
+            .ID("dataForm") 
+            .ShowValidationSummary(true)
+            //.LabelLocation(FormLabelLocation.Top)
+            .ShowColonAfterLabel(false)
+            .Items(items => {
+
+                items.AddGroup()
+                    .Caption("Страна (создание)")
+                    .Items(groupItems => {
+
+                        groupItems.AddSimpleFor(m => m.Country)
+                            .Editor(e => e
+                                .TextBox()
+                                .ID("name")
+                            );
+                            
+                        groupItems.AddSimpleFor(m => m.TouristsCount)
+                            .Editor(e => e
+                                .TextBox()
+                            );
+
+                        groupItems.AddSimpleFor(m => m.Description)
+                            .Editor(e => e
+                                .TextArea()
+                            );
+                    });
+
+                    items.AddGroup()
+                        .Caption("Признаки")
+                        .Items(groupItems => {
+                            groupItems.AddSimple()
+                                .Template(new TemplateName("SymptomGrid"));
+                        });
+            })
+            .FormData(Model)
+        )
+
+        <br />
+
+        @(Html.DevExtreme().Button()
+            .Text("Сохранить")
+            .Type(ButtonType.Success)
+            .OnClick("submitForm")
+            .UseSubmitBehavior(false)
+        )
+
+        <span />
+
+        @(Html.DevExtreme().Button()
+            .Text("Закрыть")
+            .Type(ButtonType.Danger)
+            .OnClick("toIndex")
+        )
+    }
+}
+
+@using (Html.DevExtreme().NamedTemplate("SymptomGrid"))
+{
+    @(Html.DevExtreme().DataGrid<DiagnoseSymptomsViewModel>()
+        .ID("gridSymptoms")
+        .ShowBorders(true)
+        .Width("100%")
+        .DataSource(Model.SymptomsList)
+        .Editing(e => {
+            e.Mode(GridEditMode.Cell);
+            e.AllowUpdating(true);
+            e.AllowAdding(true);
+            e.AllowDeleting(true);
+            e.UseIcons(true);
+            e.ConfirmDelete(false);
+        })
+        .Columns(columns => {
+
+            columns.AddFor(m => m.SymptomId)
+                .Lookup(lookup => lookup
+                    .DataSource(d => d.Mvc().Controller("Symptom").LoadAction("Get").Key("OID"))
+                    .DataSourceOptions(o => o.Sort("Name"))
+                    .DisplayExpr("Name")
+                    .ValueExpr("OID")
+                );
+
+            columns.AddFor(m => m.SymptomGivenDiagnoseP);
+            columns.AddFor(m => m.Description);
+        })
+        .FilterRow(f => f.Visible(false))
+        .HeaderFilter(f => f.Visible(true))
+        .GroupPanel(p => p.Visible(false))
+    )
+}
+
+<script>
+
+    function toIndex() {
+        window.location = '@Url.Action("Index", "Diagnose")';
+    }
+
+    function submitForm(e) {
+        if ($("#dataForm").dxForm("instance").validate().isValid) {
+            $("#gridSymptoms").dxDataGrid("instance").saveEditData().done(function () {
+                $("#gridSymptoms").dxDataGrid("instance").getDataSource().load().done(function (items) {
+                    for (var i = 0; i < items.length; i++) {
+                        var item = items[i];
+                        for (var property in item) {
+                            if (item.hasOwnProperty(property)) {
+                                let value = item[property];
+
+                                if (typeof value === 'number') {
+                                    value = value.toString().replace('.', ',');
+                                }
+
+                                CreateInputElement("SymptomsList", property, value, i, $("#diagnose")[0]);
+                            }
+                        }
+                    }
+
+                    $("#diagnose").submit();
+                });
+            });
+        }
+    }
+
+    function CreateInputElement(collectionName, itemName, itemValue, itemIndex, container) {
+        console.debug("CreateInputElement - itemName " + itemName + " itemValue " + itemValue + " itemIndex " + itemIndex);
+        var $input = $("<input/>");
+        $input.appendTo(container).attr({
+            type: "hidden",
+            name: collectionName + "[" + itemIndex + "]." + itemName
+        }).val(itemValue.toString());
+    }
+
+</script>

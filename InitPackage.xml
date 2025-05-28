@@ -1,0 +1,11 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<DBInitPackage>
+  
+  <Section name="Диагнозы" type="data.DbDiagnose">
+    <Item Country="Великобритания" City="Лондон" Description="" />
+    
+
+  </Section>
+
+</DBInitPackage>
