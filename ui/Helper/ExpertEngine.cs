@@ -74,7 +74,6 @@ namespace ui.Helper
 
             var priors = new Dictionary<Guid, double>(st.CurrentPosteriors);
 
-            //foreach (var d in _diagnoses)
             foreach (var d in _diagnoses.Where(diag => priors.ContainsKey(diag.OID)))
             {
                 var cond = d.DiagnoseSymptoms.FirstOrDefault(c => c.Symptom.OID == symptomId);
@@ -89,12 +88,6 @@ namespace ui.Helper
 
                 st.CurrentPosteriors[d.OID] = denominator == 0 ? 0 : numerator / denominator;
             }
-
-            //foreach (var kvp in st.CurrentPosteriors.ToList())
-            //{
-            //    if (kvp.Value < _thresholdReject)
-            //        st.CurrentPosteriors.Remove(kvp.Key);
-            //}
 
             st.CurrentPosteriors = st.CurrentPosteriors
                 .Where(kvp => kvp.Value >= _thresholdReject)
