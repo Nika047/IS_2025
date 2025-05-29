@@ -1,5 +1,9 @@
-﻿using data;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using data;
 using DevExpress.Xpo;
+using Microsoft.Extensions.Logging;
 
 namespace ui.Helper
 {
@@ -34,36 +38,114 @@ namespace ui.Helper
             state.AskedSymptomIds.Clear();
             state.Answers.Clear();
             state.Finished = false;
-            state.CurrentPosteriors = _diagnoses.ToDictionary(d => d.OID, d => (double)d.PriorP);
 
-            var total = _diagnoses.Sum(d => d.PriorP);
+            var totalPrior = _diagnoses.Sum(d => d.PriorP);
             state.CurrentPosteriors = _diagnoses.ToDictionary(
                 d => d.OID,
-                d => total == 0 ? 1.0 / _diagnoses.Count : d.PriorP / total
+                d => totalPrior == 0 ? 1.0 / _diagnoses.Count : d.PriorP / totalPrior
             );
         }
 
-        /// <summary>Выбирает самый информативный ещё не заданный симптом.</summary>
+        /// <summary>Выбирает самый информативный симптом на основе текущих вероятностей диагнозов.</summary>
         public DbSymptom? PickNextQuestion(SessionState state)
         {
-            var remainingSymptoms = _symptoms.Where(s => !state.AskedSymptomIds.Contains(s.OID));
+            var remainingSymptoms = _symptoms
+                .Where(s => !state.AskedSymptomIds.Contains(s.OID))
+                .ToList();
 
-            var symptomDiagnosesCount = _diagnoses
-                .SelectMany(d => d.DiagnoseSymptoms)
-                .GroupBy(s => s.Symptom.OID)
-                .ToDictionary(g => g.Key, g => g.Count());
+            if (!remainingSymptoms.Any())
+                return null;
 
-            var best = remainingSymptoms
-                .Select(sym => new
+            var symptomScores = new List<(DbSymptom Symptom, double InformationGain)>();
+
+            foreach (var symptom in remainingSymptoms)
+            {
+                try
                 {
-                    Symptom = sym,
-                    Count = symptomDiagnosesCount.TryGetValue(sym.OID, out var count) ? count : 0
-                })
-                .OrderByDescending(x => x.Count)
-                .ThenBy(x => x.Symptom.OID)
-                .FirstOrDefault();
+                    var gain = CalculateInformationGain(symptom, state.CurrentPosteriors);
+                    symptomScores.Add((symptom, gain));
+                }
+                catch (Exception ex)
+                {
+                    _log.LogError(ex, $"Error calculating information gain for symptom {symptom.OID}");
+                    continue;
+                }
+            }
 
-            return best.Symptom;
+            return symptomScores
+                .OrderByDescending(x => x.InformationGain)
+                .ThenBy(x => x.Symptom.OID)
+                .FirstOrDefault()
+                .Symptom;
+        }
+
+        /// <summary>Вычисляет информационную ценность симптома (ожидаемое уменьшение энтропии).</summary>
+        private double CalculateInformationGain(DbSymptom symptom, Dictionary<Guid, double> currentPosteriors)
+        {
+            double entropyBefore = CalculateEntropy(currentPosteriors.Values);
+
+            double pYes = 0;
+            foreach (var diag in _diagnoses)
+            {
+                if (!currentPosteriors.TryGetValue(diag.OID, out var posterior))
+                    continue;
+
+                var cond = diag.DiagnoseSymptoms?.FirstOrDefault(c => c.Symptom?.OID == symptom.OID);
+                if (cond == null)
+                    continue;
+
+                pYes += posterior * cond.SymptomGivenDiagnoseP;
+            }
+
+            double pNo = 1 - pYes;
+
+            var posteriorsIfYes = new Dictionary<Guid, double>();
+            var posteriorsIfNo = new Dictionary<Guid, double>();
+
+            foreach (var diag in _diagnoses)
+            {
+                if (!currentPosteriors.TryGetValue(diag.OID, out var currentP))
+                    continue;
+
+                var cond = diag.DiagnoseSymptoms?.FirstOrDefault(c => c.Symptom?.OID == symptom.OID);
+
+                if (cond == null)
+                {
+                    posteriorsIfYes[diag.OID] = currentP;
+                    posteriorsIfNo[diag.OID] = currentP;
+                    continue;
+                }
+
+                double pX_W = cond.SymptomGivenDiagnoseP;
+                double pX_notW = cond.Symptom?.SymptomGivenNotDiagnoseP ?? 0.5;
+
+                double numeratorYes = currentP * pX_W;
+                double denominatorYes = numeratorYes + (1 - currentP) * pX_notW;
+                posteriorsIfYes[diag.OID] = denominatorYes == 0 ? 0 : numeratorYes / denominatorYes;
+
+                double numeratorNo = currentP * (1 - pX_W);
+                double denominatorNo = numeratorNo + (1 - currentP) * (1 - pX_notW);
+                posteriorsIfNo[diag.OID] = denominatorNo == 0 ? 0 : numeratorNo / denominatorNo;
+            }
+
+            double entropyIfYes = CalculateEntropy(posteriorsIfYes.Values);
+            double entropyIfNo = CalculateEntropy(posteriorsIfNo.Values);
+
+            return entropyBefore - (pYes * entropyIfYes + pNo * entropyIfNo);
+        }
+
+        /// <summary>Вычисляет энтропию распределения вероятностей.</summary>
+        private double CalculateEntropy(IEnumerable<double> probabilities)
+        {
+            double entropy = 0;
+            foreach (var p in probabilities)
+            {
+                if (p > 0)
+                {
+                    entropy -= p * Math.Log(p, 2);
+                }
+            }
+            return entropy;
         }
 
         /// <summary>Обновляет постериоры по ответу пользователя.</summary>
@@ -72,41 +154,45 @@ namespace ui.Helper
             st.AskedSymptomIds.Add(symptomId);
             st.Answers[symptomId] = answerYes;
 
-            var priors = new Dictionary<Guid, double>(st.CurrentPosteriors);
+            var newPosteriors = new Dictionary<Guid, double>();
 
-            foreach (var d in _diagnoses.Where(diag => priors.ContainsKey(diag.OID)))
+            foreach (var d in _diagnoses)
             {
-                var cond = d.DiagnoseSymptoms.FirstOrDefault(c => c.Symptom.OID == symptomId);
-                if (cond is null)
+                if (!st.CurrentPosteriors.TryGetValue(d.OID, out var currentPosterior))
                     continue;
 
+                var cond = d.DiagnoseSymptoms.FirstOrDefault(c => c.Symptom?.OID == symptomId);
+                if (cond is null)
+                {
+                    newPosteriors[d.OID] = currentPosterior;
+                    continue;
+                }
+
                 double pX_W = answerYes ? cond.SymptomGivenDiagnoseP : 1 - cond.SymptomGivenDiagnoseP;
-                double pX_not_W = answerYes ? cond.Symptom.SymptomGivenNotDiagnoseP : 1 - cond.Symptom.SymptomGivenNotDiagnoseP;
+                double pX_notW = answerYes ? cond.Symptom.SymptomGivenNotDiagnoseP : 1 - cond.Symptom.SymptomGivenNotDiagnoseP;
 
-                double numerator = st.CurrentPosteriors[d.OID] * pX_W;
-                double denominator = numerator + (1 - st.CurrentPosteriors[d.OID]) * pX_not_W;
+                double numerator = currentPosterior * pX_W;
+                double denominator = numerator + (1 - currentPosterior) * pX_notW;
 
-                st.CurrentPosteriors[d.OID] = denominator == 0 ? 0 : numerator / denominator;
+                newPosteriors[d.OID] = denominator == 0 ? 0 : numerator / denominator;
             }
 
-            st.CurrentPosteriors = st.CurrentPosteriors
+            double total = newPosteriors.Sum(p => p.Value);
+            if (total > 0)
+            {
+                foreach (var key in newPosteriors.Keys.ToList())
+                {
+                    newPosteriors[key] /= total;
+                }
+            }
+
+            st.CurrentPosteriors = newPosteriors
                 .Where(kvp => kvp.Value >= _thresholdReject)
                 .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
 
-            bool noDiagnosesLeft = !st.CurrentPosteriors.Any();
-
-            if (noDiagnosesLeft ||
-                st.CurrentPosteriors.Any(p => p.Value >= _thresholdAccept) ||
-                st.AskedSymptomIds.Count == _symptoms.Count)
-            {
-                st.Finished = true;
-            }
-
-            if (st.CurrentPosteriors.Any(p => p.Value >= _thresholdAccept) ||
-                st.AskedSymptomIds.Count == _symptoms.Count)
-            {
-                st.Finished = true;
-            }
+            st.Finished = !st.CurrentPosteriors.Any() ||
+                         st.CurrentPosteriors.Any(p => p.Value >= _thresholdAccept) ||
+                         st.AskedSymptomIds.Count == _symptoms.Count;
 
             Console.WriteLine($"Q{symptomId}:{(answerYes ? "Yes" : "No")}. Priors: " +
                 $"{string.Join(", ", st.CurrentPosteriors.Select(p => $"{DiagnosisName(p.Key)}={p.Value:F3}"))}");

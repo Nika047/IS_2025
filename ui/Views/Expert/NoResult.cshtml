@@ -2,5 +2,19 @@
     ViewData["Title"] = "Результат не найден";
 }
 
-<h2>@ViewBag.Message</h2>
-<p>Попробуйте начать опрос заново.</p>
+<h3>@ViewBag.Message</h3>
+<p>Попробуйте начать опрос заново</p>
+
+@(Html.DevExtreme().Button()
+    .Text("Пройти опрос")
+    .Type(ButtonType.Default)
+    .OnClick("toIndex")
+)
+
+<script>
+
+    function toIndex() {
+        window.location = '@Url.Action("Index", "Expert")';
+    }
+
+</script>

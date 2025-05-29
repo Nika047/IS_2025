@@ -6,10 +6,35 @@
 }
 
 <h3>Вопрос @ViewData["Asked"] / @ViewData["Total"]</h3>
-<p><strong>@question</strong></p>
+<br />
+<p>@question</p>
 
 <form asp-action="Answer" method="post">
     <input type="hidden" name="symptomId" value="@symptomId" />
-    <button class="btn btn-success" name="answerYes" value="true">Да</button>
-    <button class="btn btn-danger" name="answerYes" value="false">Нет</button>
+
+    @(Html.DevExtreme().Button()
+        .Text("Да")
+        .Type(ButtonType.Success)
+        .StylingMode(ButtonStylingMode.Contained)
+        .OnClick("function(e) { submitForm(true); }")
+    )
+
+    @(Html.DevExtreme().Button()
+        .Text("Нет")
+        .Type(ButtonType.Danger)
+        .StylingMode(ButtonStylingMode.Contained)
+        .OnClick("function(e) { submitForm(false); }")
+    )
 </form>
+
+<script>
+    function submitForm(answer) {
+        const form = document.querySelector('form');
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = 'answerYes';
+        hiddenInput.value = answer;
+        form.appendChild(hiddenInput);
+        form.submit();
+    }
+</script>

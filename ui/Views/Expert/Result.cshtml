@@ -1,35 +1,25 @@
-﻿@* @model IEnumerable<dynamic>
-<h2>Результат диагностики</h2>
+﻿@model IEnumerable<dynamic>
 
-<table class="table">
-    <thead><tr><th>Диагноз</th><th>Вероятность</th></tr></thead>
-    <tbody>
-        @foreach (var d in Model)
-        {
-            <tr>
-                <td>@d.Diagnosis</td>
-                <td>@d.Probability:P2</td>
-            </tr>
-        }
-    </tbody>
-</table>
-<a asp-action="Index" class="btn btn-primary">Новая диагностика</a> *@
-
-@model IEnumerable<dynamic>
 @{
     var top = Model.First();
 }
 
 @if (Model.Any())
 {
-    <h2 class="mb-4">Наиболее вероятное направление</h2>
+    <h3 class="mb-4">Наиболее вероятное направление</h3>
     <div class="alert alert-primary">
-        <strong>@top.Diagnosis</strong> — вероятность @top.Probability:P2
+        <strong>@top.Diagnosis</strong> — вероятность @top.Probability
     </div>
 }
 else
 {
     <h3>Не удалось определить подходящую страну</h3>
+
+    @(Html.DevExtreme().Button()
+        .Text("Пройти опрос")
+        .Type(ButtonType.Default)
+        .OnClick("toIndex")
+    )
 }
 
 <h4>Распределение вероятностей</h4>
@@ -40,9 +30,22 @@ else
         {
             <tr>
                 <td>@d.Diagnosis</td>
-                <td>@d.Probability:P2</td>
+                <td>@d.Probability</td>
             </tr>
         }
     </tbody>
 </table>
-<a asp-action="Index" class="btn btn-secondary">Новая диагностика</a>
+
+@(Html.DevExtreme().Button()
+    .Text("Пройти опрос")
+    .Type(ButtonType.Default)
+    .OnClick("toIndex")
+)
+
+<script>
+
+    function toIndex() {
+        window.location = '@Url.Action("Index", "Expert")';
+    }
+    
+</script>

@@ -8,7 +8,6 @@ namespace data
     public class DbDiagnose : DbBaseDataObject
     {
         protected string hCountry;
-        protected string hCity;
         protected float hPriorP;
         protected float hTouristsCount;
 
@@ -16,12 +15,6 @@ namespace data
         {
             get { return hCountry; }
             set { SetPropertyValue(ref hCountry, value); }
-        }
-        
-        public string City
-        {
-            get { return hCity; }
-            set { SetPropertyValue(ref hCity, value); }
         }
         
         public float PriorP

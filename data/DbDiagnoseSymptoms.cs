@@ -11,7 +11,6 @@ namespace data
         protected DbDiagnose hDiagnose;
         protected DbSymptom hSymptom;
         protected float hSymptomGivenDiagnoseP;
-        //protected float hSymptomGivenNotDiagnoseP;
 
         [Association]
         public DbDiagnose Diagnose
@@ -31,12 +30,6 @@ namespace data
             get { return hSymptomGivenDiagnoseP; }
             set { SetPropertyValue(ref hSymptomGivenDiagnoseP, value); }
         }
-        
-        //public float SymptomGivenNotDiagnoseP
-        //{
-        //    get { return hSymptomGivenNotDiagnoseP; }
-        //    set { SetPropertyValue(ref hSymptomGivenNotDiagnoseP, value); }
-        //}
 
 
         public DbDiagnoseSymptoms(Session session) : base(session) { }
